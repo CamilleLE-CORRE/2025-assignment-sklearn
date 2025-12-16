@@ -48,6 +48,7 @@ from sklearn.metrics.pairwise import pairwise_distances
 
 to compute distances between 2 sets of samples.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -59,6 +60,8 @@ from sklearn.model_selection import BaseCrossValidator
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.validation import validate_data
 from sklearn.metrics.pairwise import pairwise_distances
+
+from sklearn.utils.multiclass import type_of_target
 
 
 class KNearestNeighbors(ClassifierMixin, BaseEstimator):
@@ -82,6 +85,18 @@ class KNearestNeighbors(ClassifierMixin, BaseEstimator):
         self : instance of KNearestNeighbors
             The current instance of the classifier
         """
+
+        X, y = validate_data(self, X, y, reset=True)
+
+        target_type = type_of_target(y)
+        if target_type == "continuous":
+            raise ValueError(
+                "This classifier does not support continuous targets.")
+
+        self.X_train_ = X
+        self.y_train_ = y
+        self.classes_ = np.unique(y)
+
         return self
 
     def predict(self, X):
@@ -97,7 +112,21 @@ class KNearestNeighbors(ClassifierMixin, BaseEstimator):
         y : ndarray, shape (n_test_samples,)
             Predicted class labels for each test data sample.
         """
-        y_pred = np.zeros(X.shape[0])
+
+        check_is_fitted(self)
+
+        X = validate_data(self, X, reset=False)
+
+        distances = pairwise_distances(X, self.X_train_)
+
+        neighbors_idx = np.argsort(distances, axis=1)[:, : self.n_neighbors]
+
+        neighbors_labels = self.y_train_[neighbors_idx]
+
+        y_pred = np.array([np.unique(labels, return_counts=True)[0][
+            np.argmax(np.unique(labels, return_counts=True)[1])
+        ] for labels in neighbors_labels])
+
         return y_pred
 
     def score(self, X, y):
@@ -115,7 +144,10 @@ class KNearestNeighbors(ClassifierMixin, BaseEstimator):
         score : float
             Accuracy of the model computed for the (X, y) pairs.
         """
-        return 0.
+
+        y_pred = self.predict(X)
+
+        return np.mean(y_pred == y)
 
 
 class MonthlySplit(BaseCrossValidator):
@@ -155,9 +187,16 @@ class MonthlySplit(BaseCrossValidator):
         n_splits : int
             The number of splits.
         """
-        return 0
 
-    def split(self, X, y, groups=None):
+        if self.time_col == 'index':
+            dates = pd.to_datetime(X.index)
+        else:
+            dates = pd.to_datetime(X[self.time_col].values)
+
+        months = pd.Series(dates).dt.to_period('M')
+        return months.nunique() - 1
+
+    def split(self, X, y=None, groups=None):
         """Generate indices to split data into training and test set.
 
         Parameters
@@ -178,11 +217,35 @@ class MonthlySplit(BaseCrossValidator):
             The testing set indices for that split.
         """
 
-        n_samples = X.shape[0]
-        n_splits = self.get_n_splits(X, y, groups)
-        for i in range(n_splits):
-            idx_train = range(n_samples)
-            idx_test = range(n_samples)
-            yield (
-                idx_train, idx_test
-            )
+        # n_samples = X.shape[0]
+        # n_splits = self.get_n_splits(X, y, groups)
+        # for i in range(n_splits):
+        #     idx_train = range(n_samples)
+        #     idx_test = range(n_samples)
+        #     yield (
+        #         idx_train, idx_test
+        #     )
+
+        if self.time_col == 'index':
+            dates = pd.Series(X.index, index=np.arange(len(X)))
+        else:
+            dates = pd.Series(X[self.time_col].values, index=np.arange(len(X)))
+
+        if not pd.api.types.is_datetime64_any_dtype(dates):
+            raise ValueError("time column must be datetime")
+
+        # Trier par date
+        order = np.argsort(dates.values)
+        dates_sorted = dates.iloc[order]
+
+        months = dates_sorted.dt.to_period('M')
+        unique_months = months.unique()
+
+        for i in range(len(unique_months) - 1):
+            train_month = unique_months[i]
+            test_month = unique_months[i + 1]
+
+            train_idx = order[months == train_month]
+            test_idx = order[months == test_month]
+
+            yield train_idx, test_idx
