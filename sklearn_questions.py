@@ -65,9 +65,24 @@ from sklearn.utils.multiclass import type_of_target
 
 
 class KNearestNeighbors(ClassifierMixin, BaseEstimator):
-    """KNearestNeighbors classifier."""
+    """
+    KNearestNeighbors classifier.
+
+    Parameters
+    ----------
+    n_neighbors : int, default=1
+        Number of neighbors to use.
+    """
 
     def __init__(self, n_neighbors=1):  # noqa: D107
+        """
+        Initialize the KNearestNeighbors classifier.
+
+        Parameters
+        ----------
+        n_neighbors : int, default=1
+        Number of neighbors to use.
+        """
         self.n_neighbors = n_neighbors
 
     def fit(self, X, y):
@@ -85,7 +100,6 @@ class KNearestNeighbors(ClassifierMixin, BaseEstimator):
         self : instance of KNearestNeighbors
             The current instance of the classifier
         """
-
         X, y = validate_data(self, X, y, reset=True)
 
         target_type = type_of_target(y)
@@ -112,7 +126,6 @@ class KNearestNeighbors(ClassifierMixin, BaseEstimator):
         y : ndarray, shape (n_test_samples,)
             Predicted class labels for each test data sample.
         """
-
         check_is_fitted(self)
 
         X = validate_data(self, X, reset=False)
@@ -144,7 +157,6 @@ class KNearestNeighbors(ClassifierMixin, BaseEstimator):
         score : float
             Accuracy of the model computed for the (X, y) pairs.
         """
-
         y_pred = self.predict(X)
 
         return np.mean(y_pred == y)
@@ -166,7 +178,17 @@ class MonthlySplit(BaseCrossValidator):
         To use the index as column just set `time_col` to `'index'`.
     """
 
-    def __init__(self, time_col='index'):  # noqa: D107
+    def __init__(self, time_col='index'):
+        """
+        Initialize the MonthlySplit cross-validator.
+        
+        Parameters
+        ----------
+        time_col : str, default='index'
+        Column of the input DataFrame to use for splitting.
+        If set to 'index', the DataFrame index will be used.
+        This column must be of datetime type.
+        """
         self.time_col = time_col
 
     def get_n_splits(self, X, y=None, groups=None):
@@ -187,7 +209,6 @@ class MonthlySplit(BaseCrossValidator):
         n_splits : int
             The number of splits.
         """
-
         if self.time_col == 'index':
             dates = pd.to_datetime(X.index)
         else:
@@ -216,7 +237,6 @@ class MonthlySplit(BaseCrossValidator):
         idx_test : ndarray
             The testing set indices for that split.
         """
-
         # n_samples = X.shape[0]
         # n_splits = self.get_n_splits(X, y, groups)
         # for i in range(n_splits):
