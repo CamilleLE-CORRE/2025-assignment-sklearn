@@ -181,7 +181,7 @@ class MonthlySplit(BaseCrossValidator):
     def __init__(self, time_col='index'):
         """
         Initialize the MonthlySplit cross-validator.
-        
+
         Parameters
         ----------
         time_col : str, default='index'
